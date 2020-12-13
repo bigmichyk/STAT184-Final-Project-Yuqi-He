@@ -1,0 +1,513 @@
+---
+title: "Final Project - Demographic variables that influenced COVID Confirmed numbers"
+author: "Yuqi He"
+date: "12/13/2020"
+output: html_notebook
+---
+
+### Abstract
+
+
+### Introduction
+
+      I was in a research group last summer. At the beginning of the research, we were provided methods and data sources with 6 different topics. I eventually chose to analyze the housing prices of New Haven. My second pick was COVID-19, and I wish to finish the unfinished business with this activity. At the end of the research of the COVID group during summer, they ended up with a prediction model in a shiny app. I do not intend to do such intense work, but maybe at least I could do some modeling and testing. In this particular setting, I used the 2017 census data and merged with a recent COVID19 data recorded by CDC, I wish to see what are some demographic indicators in the census data that might indicate differences in confirmed numbers in different counties and states in the United States.
+
+1. Guiding Question.
+
+      What are some potential demographic proxies that might have influenced COVID-19 confirmed numbers in the USA?
+
+2. Data Sources
+
+
+The COVID data records 3974 cases of 14 variables, including Confirmed numbers, Incident rates, State, County, and so on.
+```{r}
+# Read covid data for 11/12/2020
+covid_nov <- read.csv("11-12-2020.csv", as.is = TRUE)
+
+```
+
+
+This is the data from the 2017 census, all records via county:
+```{r}
+# read 2017 census data
+acs <- read.csv("acs2017_county_data.csv", as.is = TRUE)
+
+```
+
+
+o	Where did you find them?
+
+  I found all covid data on Github, the link is: [link](https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_daily_reports), add the dates behind this link for the direct CSV files, for example, for November 12th data, it is [link](https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_daily_reports/11-12-2020.csv). You could find all covid data from February to now.
+      
+  The other data is on Kaggle, originally from census bureau I think, It is provided by Kaggle member MuonNeutrino. The link is as follows: [link](https://www.kaggle.com/muonneutrino/us-census-demographic-data?select=acs2017_county_data.csv).
+
+o	Who collected/maintains them?
+
+      The COVID-19 data are from CSSE of Johns Hopkins University. They posted the data daily. They also specify the sources of the data, which is sometimes from the CDC, and sometimes from Patch International of Colorado. The Census data is from MuonNeutrino of Kaggle, it is originally from the Census Bureau.
+
+o	When & Why were they originally collected?
+
+      The Covid data were originally collected by different sources, for example the county bureaus in the USA. They were then aggregated to the CDC and WHO for recording and contact tracing. It is also for the medical resources allocations. The Census serves a similar objective but not that extreme. They were conducted by local bureaus and intend to collect information for better resource allocation and trend analysis.
+
+o	What does a case represent in each data source, and how many total cases are available?
+
+      For the COVID datasets, each case represents a region. For the Census dataset, each case also represents a region, but more specifically, a county. There are 3220 total cases for the census dataset, and 3974 total cases in the COVID dataset. Notice that CDC recorded cases in other countries and in the U.S. differently. The cases in America is noted in counties, which will eventually become around 3200 cases after wrangling.
+
+```{r}
+# examine the first few rows of both data
+head(acs)
+head(covid_nov)
+
+```
+Packages used:
+
+```{r}
+library(DataComputing)
+library(tidyverse)
+library(corrplot)
+library(maps)
+library(mapdata)
+library(viridis)
+library(mapproj)
+
+```
+
+
+### Exploration
+
+       From the summaries of the two data sources, There are roughly 3000-4000 cases each, which makes sense, if I only keep the USA data for covid19, I think they will be roughly the same. For the COVID data, I will use the Confirmed, case fatality ratio, the Admin2 (which is county), the latitude and longitude. From some exploration we know that the confirmed is linearly correlated with incident rates, which makes sense, I will use confirmmed and incident rate to calculate the current population and drop the population in the census data. 
+      
+      The census data has 37 variables, which I would not use them all of course. I intend to extract a few important variables that might be potential signals of high covid incident rates. For example, the IncomeperCap or income itself, the poverty rate, the production status, or the transportion method. I do not want the totalpop since I will be using the population estimated by the covid data. 
+
+```{r}
+# Examine both data by looking at their characteristics.
+glimpse(acs)
+glimpse(covid_nov)
+
+```
+
+Looking at these two data, we could see that most of them are numeric variables. It is good news and bad news at the same time. Good news is that we focus on the modeling of numeric variables, bad news is that we might not have the best explanations int he model since we do not have a lot of factors involved.
+
+These are two pairs plots for variables in the COVID data:
+
+Here I want to show how normalizing could help the data analysis:
+
+I first plotted the numeric variables in the covid dataset (unchanged). We see very little correlations between them, which in fact does not make sense.
+
+```{r}
+# pairs plot for numeric variables in covid data.(not normalized)
+pairs(Confirmed ~ Incident_Rate + Case_Fatality_Ratio 
+      + Active + Deaths, 
+      col = "green", data = covid_nov)
+```
+
+Then I normalized them with the log() function. Et Voila! Avery clear pattern showed.
+
+From this plot we know that confirmed is really close to the entries of active, death, and incident rate. In this case, I could choose only incident rate or Confirmed for analysis.
+
+```{r}
+# pairs plot for numeric variables in covid data.(normalized)
+pairs(log(Confirmed) ~ log(Incident_Rate) + Case_Fatality_Ratio 
+      + log(Active) + log(Deaths), 
+      col = "purple", data = covid_nov)
+
+```
+
+Pairs plot for the census:
+
+This is even more obvious, I would use only the population instead of men and women data, I would choose only income or incomepercap for analysis since they are so correlated.
+```{r}
+# pairs plot for numeric variables in census data.(normalized)
+pairs(log(TotalPop) ~ log(Men) + log(Income) 
+      + log(IncomePerCap) + Unemployment, 
+      col = "blue", data = acs)
+
+```
+
+### Data Wrangling
+
+First part of the exploration is to get a tidy data, this is what I do on the COVID-19 data for November, I will do the same for September and July.
+
+For the first part, because the total population in the 2017 census is not accurate, I will use the COVID19 Confirmed and Incident rate to calculate the real population. The other aspects of census are mostly recorded in percentages. Because I cannot retreive the 2020 census data, so I could only assume the percentages did not change alot throughout the years.
+```{r}
+# Create a variable population
+covid_nov <-
+  covid_nov %>%
+  mutate("Population" = 100000 * (Confirmed/Incident_Rate))
+
+# Looking at the data
+head(covid_nov, 4)
+```
+
+I then looked closely at the missing values for population, and very fishy data (like a negative number for case fataility ratio). 
+```{r}
+# Looking at the missing values
+# They were either unassigned
+# or a federal or state facility, which is reasonable.
+covid_nov[which(is.na(covid_nov$Population)),]
+
+# NAs for case fatality ratio seems suspicious
+covid_nov[which(is.na(covid_nov$Case_Fatality_Ratio)),]
+
+# Very poor data, drop them
+covid_nov <- covid_nov[!(is.na(covid_nov$Case_Fatality_Ratio) & covid_nov$Confirmed != 0),]
+```
+
+Then I filter out the data to be only the US data(I named it x), which is easy to operate: Keep the rows with a valid entry for Admin2 (County entries).
+
+I then added a variables logpop, logconfirmed to normalize the two rows of data I am going to use for the data analysis. I also added state just to make a simpler identifier for states.
+```{r}
+# Only looking at the US
+x <- covid_nov[covid_nov$Admin2 != '',]
+
+# Mostly unassigned, we do not want them since there are very limited data in the census data, drop these cases
+x[is.na(x$Incident_Rate),]
+x <- x[!(is.na(x$Incident_Rate)),]
+
+
+# Still three NAs for Case fatality ratio, very poor data, drop those.
+x[is.na(x$Case_Fatality_Ratio),]
+x <- x[!(is.na(x$Case_Fatality_Ratio)),]
+
+# Do the normalization
+x <- x %>%
+  mutate(state = Province_State) %>%
+  mutate(logpop = log(Population)) %>%
+  mutate(logconfirmed = log(Confirmed))
+
+```
+
+
+I then selected only the variables I wanted. I need FIPS because FIPS corresponds to the CountyId of the census data uniquely. This is also why I only use the census data from this dataset: It has one column that uniquely identifies each case and is also the same as the unique identifier for the covid data, which is a very good merging identifier for data wrangling. 
+
+Admin2 is the variable containing county names. state is just state names. Lat and Long_ are latitudes and longitudes.
+
+logconfirmed, logpop are the key variables that would directly used in the model. I chose death count, incident rate numbers, and case fatality ratio for subplans. After selection, I named the trimmed data covid_clean_nov. With 10 variables and 3199 cases.
+
+```{r}
+# Now, we select the ones we want:
+covid_clean_nov <- 
+  x %>% 
+  select("FIPS", "Admin2", "state", "Lat", "Long_", "logconfirmed", 
+         "Deaths", "Incident_Rate", "Case_Fatality_Ratio", "logpop")
+
+summary(covid_clean_nov)
+
+```
+
+Now, Let us look at the census:
+
+The census data has a lot of variables. Looking closely, a lot of them are too related. For example, I expect transit and drive to be negatively linearly related. So feature selection is important.
+
+The first step is to select the variables I think that are slightly related to COVID confirmed numbers. Some are ethnic related, some are related to the lifestyle people took. The first thing I changed is for entries of Asians, Natives, and Pacific. The number are too small, I decided to add them together for oen variable other_minority.
+
+Same with OtherTransp and Walk, I add them together to create other_t. I also calculated the percentage of men and women. Avariables like IncomePercap has a wide range of numbers, I normalized it to log of incomepercap.
+
+I then selected the variables I want. I tried to choose all of them except for the ones that overlap (e.g. Income and IncomePerCap) and named the new dataset "census".
+
+The new dataset looks good except for one NA in ChildPoverty, which I doubt I will choose to represent the data.
+```{r}
+# Get wanted variables first
+census <- acs %>%
+  mutate(other_minority = Asian + Pacific + Native) %>%
+  mutate(other_t = OtherTransp + Walk) %>%
+  mutate(men_p = Men / TotalPop) %>%
+  mutate(women_p = Women / TotalPop) %>%
+  mutate(logincomepc = log(IncomePerCap)) %>%
+  select("CountyId", "other_minority", "Black", "Hispanic", "White","logincomepc",
+         "Poverty","WorkAtHome","Drive","Transit","PrivateWork","PublicWork",
+         "Unemployment", "other_t", "men_p", "women_p", "ChildPoverty", "Office", 
+         "Construction", "Production", "MeanCommute") 
+
+summary(census)
+```
+
+I then joined the covid_clean_nov and census data together, creating a temporary dataset named join.
+```{r}
+# Join by ID
+join <- 
+  census %>%
+  full_join(covid_clean_nov, by = c("CountyId"="FIPS")) 
+
+head(join)
+summary(join)
+
+```
+
+The problem with join is that there are a few overlapping variables: Admin2 = County, state = State. So the first thing is to exclude those columns. The second thing is that there are some rows without even CountyID, and 29 rows without logconfirmed, which are worthless and should be excluded.
+
+I named the final dataset covid_dem, this is the cleaned and prepared form for exploration and modeling. It has 28 variables, 26 of them are numeric, and mostly are demographic data. A case is a county or other U.S. territory. There are 3191 rows of cases.
+```{r}
+# get wanted variables
+covid_dem <- 
+  join %>%
+  select("Admin2", "state", "CountyId", "other_minority", "Black", "Hispanic", "White","logincomepc",
+         "Poverty","WorkAtHome","Drive","Transit","PrivateWork","PublicWork",
+         "Unemployment", "other_t", "men_p", "women_p", "ChildPoverty", "Office", 
+         "Construction", "Production", "MeanCommute", "logconfirmed", "Incident_Rate", "Lat", "Long_", "logpop")
+
+# delete a few rows of useless data.
+covid_dem <-
+  covid_dem %>%
+  filter(!(is.na(CountyId))) %>%
+  filter(!(is.na(Lat)))
+
+summary(covid_dem)
+
+```
+
+### Exploration for model construction
+
+
+The goals is to find the demographic variables that are most correlated to covid19 case numbers in counties (index here is logconfirmed). So I decided to cut to the chase and look at the correlations between all variables. I choose corrplot to help me achieve this. The purpose of this corrplot is:
+
+1. Filter out the variables that are too weakly correlated with logconfirmed.
+
+2. Find variables that are too correlated and look if they overlap, if they do, we need to only choose one to represent. Variables other than logconfirmed that are too correlated with each other will display similar patterns, which will look good on a model, but essentially adding false positives for the model.
+```{r}
+# store variables I want for corrplot in a dataframe
+a <- data.frame(covid_dem$logconfirmed, covid_dem$other_minority, covid_dem$Black, 
+                covid_dem$Hispanic, covid_dem$White, covid_dem$logincomepc,
+                covid_dem$Poverty, covid_dem$Drive, covid_dem$Transit, covid_dem$PrivateWork,
+                covid_dem$Unemployment, covid_dem$other_t, covid_dem$women_p, 
+                covid_dem$Production, covid_dem$MeanCommute, covid_dem$logpop)
+# size adjust
+dev.new()
+
+# let all correlations calculated for a stored in b
+b <- cor(a)
+
+# plot b as the correlation of all vairables against all variables in a.
+corrplot.mixed(b, lower = "number", upper = "pie", tl.col = "black", 
+               tl.cex = 0.6, number.cex = 0.6)
+
+```
+Looking at the corrplot, logpop will be selected as one of the variables (population is definitely a factor of how many confirms in a national scale, it should be selected because not everytime population means infection for every disease.) And a few others that are weakly correlated will be selected as well. A few groups of variables have strong correlations (other_t and Drive, logincomepercap and Poverty), we want only one of them in each group. So the feature selection comes down to these variables: logpop, women_p, MeanCommute(time by minutes), Transit, Drive, PrivateWork(index of private sector employments), logincomepc, Black(percentage of black population).
+
+
+I then plot these variables individually with logconfirmed to see how are they individually correlated with logconfirmed in scatterplots. They seem to be great indicators.
+```{r}
+# gather wanted variables to create better plotting data (glyph ready form)
+y <- covid_dem %>%
+  gather(logpop, women_p, MeanCommute, Transit, 
+         Drive, PrivateWork, logincomepc, Black, key = "var", value = "value")
+
+# plot logconfirmed against all values(faceted), use geom_point and then add lines with geom_smooth
+y %>%
+  ggplot(aes(x = value, y = logconfirmed)) +
+  geom_point() +
+  stat_smooth() +
+  facet_wrap(~ var, scales = "free") +
+  theme_bw()
+
+```
+
+
+The next thing I think of is the conditions in each state is probably different. This is the first graph of looking at confirm rate via states, a map:
+
+I used the USA lat and long values from the world data of the map_data package
+```{r}
+# retreive map data for the US
+map <- map_data("world") %>% 
+  filter(region=="USA")
+
+# get US rows for confirmed numbers
+covid2 <- 
+covid_nov %>%
+  filter(!Admin2 == '') %>%
+  select(Province_State, Confirmed) %>%
+  group_by(Province_State) %>%
+  summarise(total = sum(Confirmed))
+
+# get US entries for latitude and longitude for COVID, long and lat calculated via mean of lat and long.
+covid3 <-
+  covid_nov %>%
+  filter(!Admin2 == '') %>%
+  select(Province_State, Lat, Long_) %>%
+  group_by(Province_State) %>%
+  summarise(lat = mean(Lat, na.rm = TRUE),
+            long = mean(Long_, na.rm = TRUE))
+
+# join the two dataframes previously obtained by common variable Province_State
+covid4 <- 
+  covid3 %>%
+  full_join(covid2, by = c("Province_State")) 
+  
+ggplot() +
+  geom_polygon(data = map, aes(x=long, y=lat, group=group), fill="gray", 
+               colour = "darkgray", size=0.5, alpha=0.3) + #setting line color, fill color, line size
+  ylim(23,50) + 
+  xlim(-125,-60) + #resizing to just CONUS
+  geom_point(data=covid4, aes(x=long, y=lat, color=total, size=total), alpha=0.5) + 
+  coord_map() + #plotting with correct mercator projection (prior plot was cartesian coordinates)
+  scale_color_viridis_c()+
+  ggtitle("Confirmed COVID-19 Cases in the U.S.") +
+  guides(colour = guide_legend()) +
+  theme_void()  #gets rid of axes
+```
+From the map we see that all states are different in confirmed numbers, so we want to look at how they do with population or other variables:
+
+To show the differences in each state, I choose the states with the top 8 largest population plus California and Pennsylvania, and plot their log confirmed as a function of logpop or PrivateWork.
+```{r}
+# Find top 10 states via confirmed numbers(logged)
+covid_dem %>%
+  select("state", "logpop", "logconfirmed") %>%
+  group_by(state) %>%
+  summarise(logpop = sum(logpop),
+            logconfirmed = sum(logconfirmed)) %>%
+  arrange(desc(logconfirmed))%>%
+  head(10)
+
+# Use 8 of the top ten states plus CA and PA
+covid_dem %>%
+  filter(state == "Texas" | state == "Georgia" | state == "Virginia" | 
+           state == "Kentucky" | state == "Missouri" | state == "North Carolina" 
+         | state == "Tennessee" | state == "Iowa" | state == "California" | state == "Pennsylvania") %>%
+  # gather for better plotting data structure
+  gather(logpop, PrivateWork, key = "var", value = "value") %>%
+  # visualize stae by colors
+  ggplot(aes(x = value, y = logconfirmed, color = state)) +
+  geom_point() +
+  stat_smooth() +
+  # variables as facets
+  facet_wrap(~ var, scales = "free") +
+  theme_bw()  
+
+
+```
+I could see that for logpop, the ten states seem to agree with each other, with a slight difference in the slopes. However, for PrivateWork, although there is correlations, but each state display different patterns.
+
+The fact that different states have different conditions does play a part in the confirmed rate is quite obvious. Therefore, we might want to see if considering states does make a difference in our model other than the numeric variables.
+
+### Modeling
+
+I choose the linear regression model for the analysis. The goal is to compare how much the variables I selected through feature selection could explain the logconfirmed value I used to represent confirmed numbers in the United States. 
+
+
+In the previous step, I selected state, logpop, women_p, MeanCommute, Transit, Drive, PrivateWork, logincomepc, Black as variables that have the best correlations with logconfirmed. Implementing the linear model, the function goes as follows: 
+
+lm.full <- lm(logconfirmed ~ logincomepc + logpop + Transit + Unemployment + PrivateWork + MeanCommute + Production + women_p + Black, data = covid_dem)
+
+Notice that this is the first model without considering differences in states.
+
+```{r}
+# set up model 1
+lm.full <- lm(logconfirmed ~ logincomepc + logpop + Transit + Unemployment + PrivateWork + MeanCommute + Production + women_p + Black, data = covid_dem)
+
+# get summary statistics
+summary(lm.full)
+```
+
+Looking at the summary model statistics, the r2 value is 0.85 roughly, and the error is arounf 0.6, which is not bad, but could do better. r2 represents how well logconfirmed is explained by the variables, the higher the number, the better the representation.
+
+Let's look at three explanatory plots:
+```{r}
+# set fortified value
+modf <- fortify(lm.full)
+
+# plot residuals vs fitted plot to examine errors.
+ggplot(modf, aes(x = .fitted, y = .resid)) + 
+  geom_point() +
+  stat_smooth()
+
+# plot qq plot to examine errors
+ggplot(modf, aes(sample = log(covid_dem$logconfirmed))) +
+  stat_qq() +
+  stat_qq_line()
+
+# plot predicted vs real plot to examine predicted values' accuracy.
+covid_dem$predicted <- predict(lm.full) 
+ggplot(covid_dem, aes(x = logconfirmed, y = predicted)) +
+  geom_point() +
+  stat_smooth()
+
+```
+The qqplot is slightly off (we want it to be as straight as possible, straight line means less error), but the predictions are quite close to the real values, which is not bad. The residuals vs fitted plot looks ok, but the range of residuals is slightly large (from -2 to 2), signaling slightly large error.
+
+
+Now, let us look at the model when we add considerations of differences for different states. The function this time is: 
+
+
+lm.full2 <- lm(logconfirmed ~ logincomepc + logpop + Transit + Unemployment + PrivateWork + MeanCommute + Production + women_p + Black + factor(state), data = covid_dem)
+
+
+Factoring of states give each state an individual level, which means to consider each state as an individual.
+```{r}
+# set up model 2
+lm.full2 <- lm(logconfirmed ~ logincomepc + logpop + Transit + Unemployment + PrivateWork + MeanCommute + Production + women_p + Black + factor(state), data = covid_dem)
+
+# get summary stats.
+summary(lm.full2)
+```
+The r2 value is 0.9363, and the error is 0.4 roughly. Compare to the previous model, the degree of representing logconfirmed with factoring states had a much higher performance.
+
+```{r}
+# set fortify value
+modf2 <- fortify(lm.full2)
+
+# plot residuals vs fitted plot
+ggplot(modf2, aes(x = .fitted, y = .resid)) + 
+  geom_point() +
+  stat_smooth()
+
+# plot normal qq plot.
+ggplot(modf2, aes(sample = log(covid_dem$logconfirmed))) +
+  stat_qq() +
+  stat_qq_line()
+
+# save predictions from model 2
+covid_dem$predicted2 <- predict(lm.full2)
+
+# plot predicted vs real value plot
+ggplot(covid_dem, aes(x = logconfirmed, y = predicted2)) +
+  geom_point() +
+  stat_smooth()
+
+```
+The qqplot is slightly better and the predictions are closer to the real values. The two residuals vs fitted plot is slightly better (residuals from -2 to 1), which indicates smaller error.
+
+To represent the states in a cluster dendrogram is the last step I took. Since each state is different, we might as well just separate states in groups. Cluster dendrogram measures the similarity of states and put them into groups with the most similar states. I separated them via the variables selected for the model. In future studies, we might want to look at how COVID is related to demographic with these groups.
+```{r}
+# create covid_state with variables I want for the demographic clustering
+covid_state <-
+  covid_dem %>%
+  select(state, logpop, women_p, MeanCommute, Transit, 
+         Drive, PrivateWork, logincomepc, Black) %>%
+  group_by(state) %>%
+  summarise_all(sum)
+
+# factor states
+covid_state$state <- factor(covid_state$state)
+
+# find state differences with euclidean distance
+covidDiffs <- dist(covid_state)
+
+# put them in clusters based on their differences
+covidclust <- hclust(covidDiffs)
+
+# set label to states
+covidclust$labels <- covid_state$state
+
+# plot dendrogram.
+plot(covidclust, cex = 0.7)
+```
+
+Overall, the model suggests that these variables are related to the logconfirmed value: state, logpop, women_p, MeanCommute, Transit, Drive, PrivateWork, logincomepc, Black, state. 
+
+### Conclusion
+Based on the explorations and modeling, I could conclude that the COVID-19 confirmed numbers in counties of the USA is related to these demographic variables: population, women population percentage, mean commute time, percentage of population that use transit as transportation method, percentage of population that use Driving as transportation method, percentage of population that are employed in the private sector, income per capita, percentage of African Americans, and the different states of the counties.
+
+
+In future works, we could look at different groups of states with similar demographic patterns individually. Different groups of states also contains different policies and other demographic features that could be added to the analysis.
+
+
+The kernel linear regression or logical regression could also be used in the future for better interpretation for the variables. We might also want to look if some variables are not compatible for this analysis and should be eliminated in the model.
+
+
+
+
+
+
+
+
+
