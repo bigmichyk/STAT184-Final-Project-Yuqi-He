@@ -17,10 +17,10 @@ output:  html_notebook
 
 *Description: (1) Analysis includes at least two different data sources. (2) Primary data source may NOT be loaded from an R package--though supporting data may. (3) Access to all data sources is contained within the analysis. (4) Imported data is inspected at beginning of analysis using one or more R functions: e.g., str, glimpse, head, tail, names, nrow, etc*
 
-(A) .Rmd Line numbers where at least two different data sources are imported:  lines 25 and 33.
+(A) .Rmd Line numbers where at least two different data sources are imported:  lines 27 and 35.
 
 
-(B) .Rmd Line numbers for inspecting data intake:  lines 56-59 and 82-85.
+(B) .Rmd Line numbers for inspecting data intake:  lines 59-62 and 84-87.
 
 
 ### Data Wrangling (5 out of 8 required)
@@ -28,28 +28,28 @@ output:  html_notebook
 *Description: Students need not use every function and method introduced in STAT 184, but clear demonstration of proficiency should include proper use of 5 out of the following 8 topics from class: (+) various data verbs for general data wrangling like filter, mutate, summarise, arrange, group_by, etc. (+) joins for multiple data tables. (+) spread & gather to stack/unstack variables (+) regular expressions (+) reduction and/or transformation functions like mean, sum, max, min, n(), rank, pmin, etc. (+) user-defined functions (+) loops and control flow (+) machine learning*
 
 
-(A) .Rmd Line number(s) for general data wrangling: lines 134-136, 173-176, 210-220, 250-253, 311-329, 352-365, 471-477.
+(A) .Rmd Line number(s) for general data wrangling: lines 136-138, 175-178, 212-222, 252-255, 313-331, 354-367, 473-479.
 
 
-(B) .Rmd Line number(s) for a join operation: lines 230 and 334
+(B) .Rmd Line number(s) for a join operation: lines 232 and 336
 
 
-(C) .Rmd Line number(s) for a spread or gather operation (or equivalent): lines 292 and 367
+(C) .Rmd Line number(s) for a spread or gather operation (or equivalent): lines 294 and 369
 
 
 (D) .Rmd Line number(s) for use of regular expressions: 
 
 
-(E) .Rmd Line number(s) for use of reduction and/or transformation functions: lines 320, 356, 357, 477, 328, 329.
+(E) .Rmd Line number(s) for use of reduction and/or transformation functions: lines 322, 358, 359, 479, 330, 331.
 
 
-(F) .Rmd Line number(s) for use of user-defined functions: lines 395 and 437.
+(F) .Rmd Line number(s) for use of user-defined functions: lines 397 and 439.
 
 
 (G) .Rmd Line number(s) for use of loops and/or control flow: 
 
 
-(H) .Rmd Line number(s) for use of machine learning (not "wrangling" but scored here): 470-492(supervised learning) 
+(H) .Rmd Line number(s) for use of machine learning (not "wrangling" but scored here): 472-494(supervised learning) 
 
 
 
@@ -58,15 +58,15 @@ output:  html_notebook
 *Description: Students need not use every function and method introduced in STAT 184, but clear demonstration of proficiency should include a range of useful of data visualizations that are (1) relevant to stated research question for the analysis, (2) include at least one effective display of many--at least 3--variables, and (3) include 3 of the following 5 visualization techniques learned in STAT 184: (+) use of multiple geoms such as points, density, lines, segments, boxplots, bar charts, histograms, etc (+) use of multiple aesthetics--not necessarily all in the same graph--such as color, size, shape, x/y position, facets, etc (+) layered graphics such as points and accompanying smoother, points and accompanying boxplots, overlaid density distributions, etc (+) leaflet maps (+) decision tree and/or dendogram displaying machine learning model results*
 
 
-(A) .Rmd Line number(s) for use of mulitple different geoms:  lines 297-301, 336-346, 409-422, 449-464
+(A) .Rmd Line number(s) for use of mulitple different geoms:  lines 299-303, 338-348, 411-424, 451-466
 
-(B) .Rmd Line number(s) for use of multiple aesthetics:  lines 297, 337, 341, 369, 409-420, 449-462
+(B) .Rmd Line number(s) for use of multiple aesthetics:  lines 299, 339, 343, 371, 411-422, 451-464
 
-(C) .Rmd Line number(s) for use of layered graphics:  lines 299, 371, 411-422, 451-464
+(C) .Rmd Line number(s) for use of layered graphics:  lines 301, 373, 413-424, 453-466
 
 (D) .Rmd Line number(s) for use of leaflet maps:  n
 
-(E) .Rmd Line number(s) for use of decision tree or dendogram results: line 492   
+(E) .Rmd Line number(s) for use of decision tree or dendogram results: line 494   
 
 
 

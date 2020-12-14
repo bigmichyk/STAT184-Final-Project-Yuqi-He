@@ -7,10 +7,12 @@ output: html_notebook
 
 ### Abstract
 
+COVID-19 has long been a major concern of American citizens. At the time when we are looking for answers, people ask questions. One of the most importnat questions is what type of demographic aspect is the safest for fellow Americans via the COVID rates of infection. In this report, I chose some demographic variables that are the top most correlated with the number of COVID confirmed via county. I build a linear model and predicted the confirmed number usingthese variables. Some variables are debatable, whereas I also found that analyzing in a smaller scale (groups of states instead of the entire country) might be a potentially better approach. The explorations and modeling does suggest that some variables(demographic) might be good indicators of COVID infection numbers. 
+
 
 ### Introduction
 
-      I was in a research group last summer. At the beginning of the research, we were provided methods and data sources with 6 different topics. I eventually chose to analyze the housing prices of New Haven. My second pick was COVID-19, and I wish to finish the unfinished business with this activity. At the end of the research of the COVID group during summer, they ended up with a prediction model in a shiny app. I do not intend to do such intense work, but maybe at least I could do some modeling and testing. In this particular setting, I used the 2017 census data and merged with a recent COVID19 data recorded by CDC, I wish to see what are some demographic indicators in the census data that might indicate differences in confirmed numbers in different counties and states in the United States.
+I was in a research group last summer. At the beginning of the research, we were provided methods and data sources with 6 different topics. I eventually chose to analyze the housing prices of New Haven. My second pick was COVID-19, and I wish to finish the unfinished business with this activity. At the end of the research of the COVID group during summer, they ended up with a prediction model in a shiny app. I do not intend to do such intense work, but maybe at least I could do some modeling and testing. In this particular setting, I used the 2017 census data and merged with a recent COVID19 data recorded by CDC, I wish to see what are some demographic indicators in the census data that might indicate differences in confirmed numbers in different counties and states in the United States.
 
 1. Guiding Question.
 
@@ -43,15 +45,15 @@ o	Where did you find them?
 
 o	Who collected/maintains them?
 
-      The COVID-19 data are from CSSE of Johns Hopkins University. They posted the data daily. They also specify the sources of the data, which is sometimes from the CDC, and sometimes from Patch International of Colorado. The Census data is from MuonNeutrino of Kaggle, it is originally from the Census Bureau.
+The COVID-19 data are from CSSE of Johns Hopkins University. They posted the data daily. They also specify the sources of the data, which is sometimes from the CDC, and sometimes from Patch International of Colorado. The Census data is from MuonNeutrino of Kaggle, it is originally from the Census Bureau.
 
 o	When & Why were they originally collected?
 
-      The Covid data were originally collected by different sources, for example the county bureaus in the USA. They were then aggregated to the CDC and WHO for recording and contact tracing. It is also for the medical resources allocations. The Census serves a similar objective but not that extreme. They were conducted by local bureaus and intend to collect information for better resource allocation and trend analysis.
+The Covid data were originally collected by different sources, for example the county bureaus in the USA. They were then aggregated to the CDC and WHO for recording and contact tracing. It is also for the medical resources allocations. The Census serves a similar objective but not that extreme. They were conducted by local bureaus and intend to collect information for better resource allocation and trend analysis.
 
 o	What does a case represent in each data source, and how many total cases are available?
 
-      For the COVID datasets, each case represents a region. For the Census dataset, each case also represents a region, but more specifically, a county. There are 3220 total cases for the census dataset, and 3974 total cases in the COVID dataset. Notice that CDC recorded cases in other countries and in the U.S. differently. The cases in America is noted in counties, which will eventually become around 3200 cases after wrangling.
+For the COVID datasets, each case represents a region. For the Census dataset, each case also represents a region, but more specifically, a county. There are 3220 total cases for the census dataset, and 3974 total cases in the COVID dataset. Notice that CDC recorded cases in other countries and in the U.S. differently. The cases in America is noted in counties, which will eventually become around 3200 cases after wrangling.
 
 ```{r}
 # examine the first few rows of both data
@@ -75,9 +77,9 @@ library(mapproj)
 
 ### Exploration
 
-       From the summaries of the two data sources, There are roughly 3000-4000 cases each, which makes sense, if I only keep the USA data for covid19, I think they will be roughly the same. For the COVID data, I will use the Confirmed, case fatality ratio, the Admin2 (which is county), the latitude and longitude. From some exploration we know that the confirmed is linearly correlated with incident rates, which makes sense, I will use confirmmed and incident rate to calculate the current population and drop the population in the census data. 
+From the summaries of the two data sources, There are roughly 3000-4000 cases each, which makes sense, if I only keep the USA data for covid19, I think they will be roughly the same. For the COVID data, I will use the Confirmed, case fatality ratio, the Admin2 (which is county), the latitude and longitude. From some exploration we know that the confirmed is linearly correlated with incident rates, which makes sense, I will use confirmmed and incident rate to calculate the current population and drop the population in the census data. 
       
-      The census data has 37 variables, which I would not use them all of course. I intend to extract a few important variables that might be potential signals of high covid incident rates. For example, the IncomeperCap or income itself, the poverty rate, the production status, or the transportion method. I do not want the totalpop since I will be using the population estimated by the covid data. 
+The census data has 37 variables, which I would not use them all of course. I intend to extract a few important variables that might be potential signals of high covid incident rates. For example, the IncomeperCap or income itself, the poverty rate, the production status, or the transportion method. I do not want the totalpop since I will be using the population estimated by the covid data. 
 
 ```{r}
 # Examine both data by looking at their characteristics.
